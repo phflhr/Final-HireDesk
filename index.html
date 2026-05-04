@@ -1,0 +1,817 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>HireDesk — Live Recruitment Tracker</title>
+<link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700;800&family=DM+Sans:wght@300;400;500;600&display=swap" rel="stylesheet"/>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<style>
+:root{
+  --g900:#072318;--g800:#0d4f2e;--g700:#145d38;--g600:#1a7a47;--g500:#22a05a;--g100:#e8f5ee;--g50:#f3faf6;
+  --y500:#f5c518;--y400:#f7d044;--y100:#fffbe6;--y800:#8a6500;
+  --r600:#c0392b;--r100:#fdf0ef;
+  --ink:#0d1f16;--fog:#6b7c74;--border:#dde5e0;--bg:#f0f4f1;--white:#fff;
+  --shadow-sm:0 1px 4px rgba(7,35,24,.07);--shadow:0 2px 12px rgba(7,35,24,.1);--shadow-lg:0 8px 32px rgba(7,35,24,.16);
+  --r:10px;--r-sm:6px;--r-lg:16px;
+  --fd:'Syne',sans-serif;--fb:'DM Sans',sans-serif;
+}
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+body{font-family:var(--fb);background:var(--bg);color:var(--ink);min-height:100vh;font-size:14px}
+::-webkit-scrollbar{width:6px;height:6px}::-webkit-scrollbar-thumb{background:var(--border);border-radius:3px}
+
+/* TOPBAR */
+.topbar{background:var(--g800);color:#fff;display:flex;align-items:center;justify-content:space-between;padding:0 24px;height:58px;position:sticky;top:0;z-index:200;box-shadow:0 2px 16px rgba(0,0,0,.25)}
+.logo{display:flex;align-items:center;gap:11px}
+.logo-icon{width:36px;height:36px;background:var(--y500);border-radius:9px;display:flex;align-items:center;justify-content:center;font-family:var(--fd);font-size:16px;font-weight:800;color:var(--g800)}
+.logo-text{font-family:var(--fd);font-size:19px;font-weight:700}
+.logo-sub{font-size:9px;letter-spacing:2px;text-transform:uppercase;opacity:.55;margin-top:1px}
+.topbar-right{display:flex;align-items:center;gap:8px}
+.live-pill{display:flex;align-items:center;gap:6px;font-size:11px;font-weight:600;letter-spacing:.6px;text-transform:uppercase;color:rgba(255,255,255,.65);padding:5px 10px;border:1px solid rgba(255,255,255,.15);border-radius:100px}
+.live-pill::before{content:'';width:7px;height:7px;border-radius:50%;background:#4ade80;animation:pulse 2s infinite}
+@keyframes pulse{0%{box-shadow:0 0 0 0 rgba(74,222,128,.5)}70%{box-shadow:0 0 0 7px rgba(74,222,128,0)}100%{box-shadow:0 0 0 0 rgba(74,222,128,0)}}
+.sync-txt{font-size:11px;color:rgba(255,255,255,.5)}
+
+/* TABS */
+.tabs{background:var(--white);border-bottom:2px solid var(--border);display:flex;padding:0 24px;position:sticky;top:58px;z-index:190}
+.tab{padding:13px 20px;font-family:var(--fd);font-weight:600;font-size:12px;letter-spacing:.5px;text-transform:uppercase;cursor:pointer;border-bottom:3px solid transparent;margin-bottom:-2px;color:var(--fog);transition:all .2s;user-select:none}
+.tab:hover{color:var(--g600)}.tab.active{color:var(--g800);border-bottom-color:var(--y500)}
+
+.view{padding:22px 24px}.hidden{display:none!important}
+
+/* BUTTONS */
+.btn{display:inline-flex;align-items:center;gap:6px;padding:8px 16px;border-radius:var(--r-sm);font-family:var(--fb);font-size:13px;font-weight:600;cursor:pointer;border:none;transition:all .18s;white-space:nowrap}
+.btn-primary{background:var(--y500);color:var(--g800)}.btn-primary:hover{background:var(--y400)}
+.btn-green{background:var(--g600);color:#fff}.btn-green:hover{background:var(--g700)}
+.btn-outline{background:transparent;border:1.5px solid rgba(255,255,255,.3);color:#fff}.btn-outline:hover{background:rgba(255,255,255,.1)}
+.btn-ghost{background:transparent;border:1.5px solid var(--border);color:var(--fog)}.btn-ghost:hover{border-color:var(--g600);color:var(--g600)}
+.btn-danger{background:var(--r100);color:var(--r600);border:1.5px solid #f0c8c5}.btn-danger:hover{background:var(--r600);color:#fff}
+.btn-sm{padding:5px 10px;font-size:12px}
+
+/* KPI */
+.kpi-row{display:grid;grid-template-columns:repeat(auto-fill,minmax(155px,1fr));gap:14px;margin-bottom:24px}
+.kpi{background:var(--white);border-radius:var(--r);padding:18px 18px 14px;box-shadow:var(--shadow-sm);border-top:4px solid transparent}
+.kpi.cg{border-top-color:var(--g500)}.kpi.cy{border-top-color:var(--y500)}.kpi.cr{border-top-color:var(--r600)}.kpi.cd{border-top-color:var(--g800)}.kpi.cb{border-top-color:#3b82f6}
+.kpi-label{font-size:10px;font-weight:700;letter-spacing:1px;text-transform:uppercase;color:var(--fog);margin-bottom:8px}
+.kpi-val{font-family:var(--fd);font-size:36px;font-weight:700;line-height:1}
+.kpi.cg .kpi-val{color:var(--g600)}.kpi.cy .kpi-val{color:var(--y800)}.kpi.cr .kpi-val{color:var(--r600)}.kpi.cd .kpi-val{color:var(--g800)}
+.kpi-sub{font-size:11px;color:var(--fog);margin-top:5px}
+
+/* CARD / FORM */
+.card{background:var(--white);border-radius:var(--r);box-shadow:var(--shadow-sm);overflow:hidden;margin-bottom:18px}
+.card-head{padding:16px 22px;background:var(--g800);color:#fff;display:flex;align-items:center;justify-content:space-between}
+.card-head.is-editing{background:var(--g600)}
+.card-title{font-family:var(--fd);font-size:15px;font-weight:700}
+.card-body{padding:22px}
+.form-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(210px,1fr));gap:15px;margin-bottom:18px}
+.field{display:flex;flex-direction:column;gap:5px}
+.field label{font-size:10px;font-weight:700;letter-spacing:.8px;text-transform:uppercase;color:var(--fog)}
+.field input,.field select{border:1.5px solid var(--border);border-radius:var(--r-sm);padding:9px 12px;font-family:var(--fb);font-size:13.5px;color:var(--ink);background:var(--white);outline:none;width:100%;transition:border-color .15s}
+.field input:focus,.field select:focus{border-color:var(--g500);box-shadow:0 0 0 3px rgba(34,160,90,.1)}
+.field input.err{border-color:var(--r600);background:var(--r100)}
+
+/* TABLE */
+.tbl-wrap{background:var(--white);border-radius:var(--r);box-shadow:var(--shadow-sm);overflow:hidden}
+.tbl-toolbar{padding:12px 16px;border-bottom:1px solid var(--border);display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+.search-box{display:flex;align-items:center;gap:7px;border:1.5px solid var(--border);border-radius:var(--r-sm);padding:7px 12px;background:var(--bg);flex:1;min-width:200px}
+.search-box input{border:none;background:transparent;font-family:var(--fb);font-size:13px;outline:none;width:100%}
+.fsel{border:1.5px solid var(--border);border-radius:var(--r-sm);padding:7px 12px;font-family:var(--fb);font-size:13px;background:var(--bg);outline:none;cursor:pointer}
+.tbl-scroll{overflow-x:auto}
+table{width:100%;border-collapse:collapse;font-size:13px}
+thead th{background:var(--g800);color:#fff;padding:11px 14px;text-align:left;font-size:10px;font-weight:700;letter-spacing:.8px;text-transform:uppercase;white-space:nowrap}
+tbody tr{border-bottom:1px solid var(--border);transition:background .12s}
+tbody tr:hover{background:var(--g50)}
+tbody td{padding:9px 14px;vertical-align:middle}
+.rj{background:#f0faf3}.rw{background:#fffcf0}.rr{background:#fff8f7}.ro{background:#eff6ff}
+.badge{display:inline-block;padding:2px 9px;border-radius:100px;font-size:10px;font-weight:700;text-transform:uppercase}
+.bj{background:#d4edda;color:#155724}.bo2{background:#cce5ff;color:#004085}.bw{background:var(--y100);color:var(--y800)}.br{background:var(--r100);color:var(--r600)}.bb{background:#f3e5f5;color:#6a1b9a}
+.act{display:flex;gap:4px}
+.ibtn{width:28px;height:28px;border:none;border-radius:5px;cursor:pointer;display:flex;align-items:center;justify-content:center;font-size:14px;background:transparent;transition:all .15s}
+.ibtn:hover{transform:scale(1.1)}
+.ibtn.edit{color:var(--g600)}.ibtn.edit:hover{background:var(--g100)}
+.ibtn.del{color:var(--r600)}.ibtn.del:hover{background:var(--r100)}
+.pager{padding:12px 16px;border-top:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px}
+.pager-info{font-size:12px;color:var(--fog)}
+.pager-btns{display:flex;gap:5px}
+.pbtn{width:28px;height:28px;border:1.5px solid var(--border);border-radius:5px;background:var(--white);cursor:pointer;font-size:12px;font-weight:600;display:flex;align-items:center;justify-content:center;font-family:var(--fb)}
+.pbtn:hover{border-color:var(--g500);color:var(--g500)}.pbtn.active{background:var(--g800);border-color:var(--g800);color:#fff}.pbtn:disabled{opacity:.35;cursor:not-allowed}
+
+/* CHARTS */
+.chart-section{display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:24px}
+@media(max-width:700px){.chart-section{grid-template-columns:1fr}}
+.chart-card{background:var(--white);border-radius:var(--r);padding:20px;box-shadow:var(--shadow-sm)}
+.chart-title{font-family:var(--fd);font-size:14px;font-weight:700;color:var(--g800);margin-bottom:16px}
+.bar-row{display:flex;align-items:center;gap:10px;margin-bottom:10px}
+.bar-lbl{width:90px;font-size:11px;font-weight:600;color:var(--fog);text-align:right;flex-shrink:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.bar-track{flex:1;background:var(--border);border-radius:100px;height:20px;overflow:hidden}
+.bar-fill{height:100%;border-radius:100px;display:flex;align-items:center;justify-content:flex-end;padding-right:8px;transition:width .5s}
+.bar-fill span{font-size:10px;font-weight:700;color:#fff}
+.bar-count{width:26px;font-size:12px;font-weight:700}
+
+/* UPLOAD */
+.drop-zone{border:2.5px dashed var(--border);border-radius:var(--r-lg);padding:48px 32px;text-align:center;background:var(--white);cursor:pointer;transition:all .2s;margin-bottom:16px}
+.drop-zone:hover{border-color:var(--g500);background:var(--g50)}
+
+/* TOAST */
+#toasts{position:fixed;top:68px;right:18px;z-index:9999;display:flex;flex-direction:column;gap:8px;pointer-events:none}
+.toast{background:var(--white);border-left:4px solid var(--g500);border-radius:var(--r-sm);padding:12px 16px;box-shadow:var(--shadow-lg);font-size:13px;font-weight:500;max-width:360px;animation:tsi .3s ease;pointer-events:all}
+.toast.err{border-left-color:var(--r600)}.toast.warn{border-left-color:var(--y500)}
+@keyframes tsi{from{transform:translateX(110%);opacity:0}to{transform:translateX(0);opacity:1}}
+@keyframes tso{to{transform:translateX(110%);opacity:0}}
+
+/* MODAL */
+.modal-bg{display:none;position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:500;align-items:center;justify-content:center}
+.modal-bg.open{display:flex}
+.modal{background:var(--white);border-radius:var(--r-lg);padding:28px;max-width:440px;width:92%;box-shadow:var(--shadow-lg)}
+.modal h3{font-family:var(--fd);font-size:20px;color:var(--r600);margin-bottom:8px}
+.modal p{color:var(--fog);margin-bottom:20px;line-height:1.65}
+.modal-actions{display:flex;gap:10px;justify-content:flex-end}
+
+/* LOADER */
+.loader{display:none;position:fixed;inset:0;background:rgba(7,35,24,.65);z-index:1000;align-items:center;justify-content:center;flex-direction:column;gap:16px}
+.loader.on{display:flex}
+.spinner{width:44px;height:44px;border:4px solid rgba(255,255,255,.15);border-top-color:var(--y500);border-radius:50%;animation:spin .75s linear infinite}
+@keyframes spin{to{transform:rotate(360deg)}}
+.loader p{color:#fff;font-weight:500}
+
+.mgmt-th th{background:var(--g900)!important}
+.off-yes{color:var(--g600);font-weight:700}.off-wip{color:var(--y800);font-weight:700}
+.file-input{display:none}
+.sec-hdr{display:flex;align-items:center;justify-content:space-between;margin-bottom:14px;flex-wrap:wrap;gap:8px}
+.sec-title{font-family:var(--fd);font-size:18px;font-weight:700;color:var(--g800)}
+.sec-title small{font-family:var(--fb);font-size:12px;font-weight:400;color:var(--fog);margin-left:8px}
+.edit-banner{background:var(--g600);color:#fff;padding:10px 22px;font-size:13px;font-weight:600;display:flex;align-items:center;justify-content:space-between}
+.edit-banner.hidden{display:none}
+
+/* SETUP */
+.config-banner{background:linear-gradient(135deg,var(--g800),var(--g700));color:#fff;padding:20px 24px;border-radius:var(--r-lg);margin-bottom:20px;border-left:5px solid var(--y500)}
+.config-banner h2{font-family:var(--fd);font-size:18px;margin-bottom:6px}
+.config-banner p{font-size:13px;opacity:.8;line-height:1.7}
+.config-input{display:flex;gap:10px;align-items:center;margin-top:14px;flex-wrap:wrap}
+.config-input input{flex:1;min-width:260px;border:2px solid rgba(255,255,255,.25);border-radius:var(--r-sm);padding:9px 14px;background:rgba(255,255,255,.1);color:#fff;font-family:var(--fb);font-size:13px;outline:none}
+.config-input input:focus{border-color:var(--y500)}
+.setup-guide{background:var(--white);border-radius:var(--r-lg);padding:28px;box-shadow:var(--shadow-sm)}
+.setup-guide h3{font-family:var(--fd);font-size:16px;color:var(--g800);margin-bottom:14px}
+.step{display:flex;gap:14px;margin-bottom:16px;padding-bottom:16px;border-bottom:1px solid var(--border)}
+.step:last-child{border-bottom:none;margin-bottom:0;padding-bottom:0}
+.step-num{width:30px;height:30px;border-radius:50%;background:var(--g800);color:#fff;display:flex;align-items:center;justify-content:center;font-family:var(--fd);font-size:14px;font-weight:700;flex-shrink:0}
+.step-title{font-weight:700;margin-bottom:4px}.step-desc{font-size:13px;color:var(--fog);line-height:1.65}
+
+@media(max-width:600px){.topbar{padding:0 14px}.view{padding:14px}.kpi-row{grid-template-columns:repeat(2,1fr)}.form-grid{grid-template-columns:1fr}}
+</style>
+</head>
+<body>
+
+<div class="loader" id="loader"><div class="spinner"></div><p id="loaderMsg">Loading…</p></div>
+<div id="toasts"></div>
+
+<!-- DUPLICATE MODAL — only for NEW candidates -->
+<div class="modal-bg" id="dupModal">
+  <div class="modal">
+    <h3>⚠️ Duplicate Detected</h3>
+    <p id="dupMsg">This candidate already exists.</p>
+    <div class="modal-actions">
+      <button class="btn btn-ghost" onclick="closeDup()">Cancel</button>
+      <button class="btn btn-danger" onclick="forceAdd()">Add Anyway</button>
+    </div>
+  </div>
+</div>
+
+<!-- TOPBAR -->
+<div class="topbar">
+  <div class="logo">
+    <div class="logo-icon">H</div>
+    <div><div class="logo-text">HireDesk</div><div class="logo-sub">Recruitment Intelligence</div></div>
+  </div>
+  <div class="topbar-right">
+    <div class="live-pill" id="livePill">Live</div>
+    <span class="sync-txt" id="syncTxt">Connecting…</span>
+    <label class="btn btn-outline btn-sm" for="fileInput">📁 Upload</label>
+    <input type="file" id="fileInput" class="file-input" accept=".csv,.xlsx,.xls" onchange="handleUpload(this)"/>
+    <button class="btn btn-primary btn-sm" onclick="downloadCSV()">⬇ CSV</button>
+    <button class="btn btn-primary btn-sm" onclick="downloadExcel()">⬇ Excel</button>
+  </div>
+</div>
+
+<!-- TABS -->
+<div class="tabs">
+  <div class="tab active" data-tab="analytics" onclick="switchTab('analytics')">📊 Analytics</div>
+  <div class="tab" data-tab="candidates" onclick="switchTab('candidates')">👤 Candidates</div>
+  <div class="tab" data-tab="management" onclick="switchTab('management')">📋 Management</div>
+  <div class="tab" data-tab="upload" onclick="switchTab('upload')">📤 Upload</div>
+  <div class="tab" data-tab="setup" onclick="switchTab('setup')">⚙️ Setup</div>
+</div>
+
+<!-- ═══ ANALYTICS ═══ -->
+<div id="tab-analytics" class="view">
+  <div class="sec-hdr">
+    <div class="sec-title">Recruitment Analytics <small>Live from Google Sheets</small></div>
+    <button class="btn btn-green btn-sm" onclick="loadData(true)">🔄 Refresh</button>
+  </div>
+  <div class="kpi-row" id="kpiRow"></div>
+  <div class="chart-section">
+    <div class="chart-card"><div class="chart-title">Pipeline Breakdown</div><div id="pipeChart"></div></div>
+    <div class="chart-card"><div class="chart-title">Branch Distribution</div><div id="branchChart"></div></div>
+  </div>
+  <div class="chart-card"><div class="chart-title">Region Summary</div><div id="regionChart"></div></div>
+</div>
+
+<!-- ═══ CANDIDATES ═══ -->
+<div id="tab-candidates" class="view hidden">
+
+  <!-- EDIT BANNER — shown when editing -->
+  <div class="edit-banner hidden" id="editBanner">
+    ✏️ <span id="editBannerName">Editing candidate</span> — make your changes below and click Save
+    <button class="btn btn-danger btn-sm" onclick="cancelEdit()">✕ Cancel Edit</button>
+  </div>
+
+  <!-- FORM -->
+  <div class="card">
+    <div class="card-head" id="cardHead">
+      <div class="card-title" id="formTitle">➕ Add New Candidate</div>
+      <div style="display:flex;gap:8px">
+        <button class="btn btn-primary btn-sm" onclick="saveForm()">✅ Save</button>
+        <button class="btn btn-ghost btn-sm" onclick="cancelEdit()">↺ Reset</button>
+      </div>
+    </div>
+    <div class="card-body">
+      <div class="form-grid">
+        <div class="field"><label>Candidate Name *</label><input id="fName" placeholder="Full name"/></div>
+        <div class="field"><label>Branch *</label><input id="fBranch" placeholder="e.g. Mumbai"/></div>
+        <div class="field"><label>Designation *</label><input id="fDesig" placeholder="e.g. Area Manager"/></div>
+        <div class="field"><label>Department</label><input id="fDept" placeholder="e.g. Sales"/></div>
+        <div class="field"><label>State</label><input id="fState" placeholder="e.g. Maharashtra"/></div>
+        <div class="field"><label>Reporting To</label><input id="fRt" placeholder="Manager name"/></div>
+        <div class="field"><label>HR Owner</label><input id="fHr" placeholder="HR name"/></div>
+        <div class="field"><label>Region / Location</label>
+          <select id="fRegion"><option value="">— Select —</option><option>North 1</option><option>North 2</option><option>West</option><option>South</option></select>
+        </div>
+        <div class="field"><label>Status</label>
+          <select id="fStatus"><option value="">— Select —</option><option>WIP</option><option>Offered</option><option>Joined</option><option>Rejected</option><option>Backed Out</option></select>
+        </div>
+        <div class="field"><label>Sub-status</label>
+          <select id="fSub"><option value="">— Select —</option><option>BM</option><option>HR</option></select>
+        </div>
+        <div class="field"><label>Application Date</label><input type="date" id="fAppDate"/></div>
+        <div class="field"><label>Offer Release Date</label><input type="date" id="fOfferDate"/></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- TABLE -->
+  <div class="tbl-wrap">
+    <div class="tbl-toolbar">
+      <div class="search-box"><span>🔍</span><input id="searchQ" placeholder="Search name, branch, designation…" oninput="renderTable()"/></div>
+      <select class="fsel" id="fltStatus" onchange="renderTable()"><option value="">All Statuses</option><option>WIP</option><option>Offered</option><option>Joined</option><option>Rejected</option><option>Backed Out</option></select>
+      <select class="fsel" id="fltRegion" onchange="renderTable()"><option value="">All Regions</option><option>North 1</option><option>North 2</option><option>West</option><option>South</option></select>
+      <select class="fsel" id="fltBranch" onchange="renderTable()"><option value="">All Branches</option></select>
+      <span id="tblCount" style="font-size:12px;color:var(--fog);margin-left:auto"></span>
+    </div>
+    <div class="tbl-scroll">
+      <table>
+        <thead><tr><th>#</th><th>Candidate</th><th>Branch</th><th>Designation</th><th>Dept</th><th>State</th><th>Reporting To</th><th>HR Owner</th><th>Region</th><th>Status</th><th>Sub</th><th>App Date</th><th>Offer Date</th><th>Actions</th></tr></thead>
+        <tbody id="tblBody"></tbody>
+      </table>
+    </div>
+    <div id="emptyMsg" class="hidden" style="text-align:center;padding:48px;color:var(--fog)"><div style="font-size:40px;margin-bottom:10px">🗂️</div><p>No candidates found.</p></div>
+    <div class="pager" id="pager"></div>
+  </div>
+</div>
+
+<!-- ═══ MANAGEMENT ═══ -->
+<div id="tab-management" class="view hidden">
+  <div class="sec-hdr">
+    <div class="sec-title">Management View</div>
+    <div class="search-box" style="flex:0 0 260px"><span>🔍</span><input id="mgmtQ" placeholder="Search…" oninput="renderMgmt()"/></div>
+  </div>
+  <div class="tbl-wrap"><div class="tbl-scroll">
+    <table class="mgmt-th">
+      <thead><tr><th>#</th><th>Branch</th><th>Candidate</th><th>Designation</th><th>Offered</th><th>Offer Date</th><th>Reporting To</th></tr></thead>
+      <tbody id="mgmtBody"></tbody>
+    </table>
+  </div>
+  <div id="mgmtEmpty" class="hidden" style="text-align:center;padding:48px;color:var(--fog)"><p>No data.</p></div>
+  </div>
+</div>
+
+<!-- ═══ UPLOAD ═══ -->
+<div id="tab-upload" class="view hidden">
+  <div class="drop-zone" ondragover="event.preventDefault();this.style.borderColor='var(--g500)'" ondragleave="this.style.borderColor=''" ondrop="handleDrop(event)">
+    <div style="font-size:48px;margin-bottom:14px">📂</div>
+    <div style="font-family:var(--fd);font-size:18px;font-weight:700;color:var(--g800);margin-bottom:6px">Drop your file here</div>
+    <div style="font-size:12px;color:var(--fog)">CSV and Excel (.xlsx) supported · Missing columns handled automatically</div>
+    <br/>
+    <label class="btn btn-green" for="fileInput2" style="cursor:pointer">Browse File</label>
+    <input type="file" id="fileInput2" class="file-input" accept=".csv,.xlsx,.xls" onchange="handleUpload(this)"/>
+  </div>
+  <div class="card"><div class="card-head"><div class="card-title">Column Mapping</div></div>
+    <div class="card-body" style="font-size:13px;line-height:2;color:var(--fog)">
+      <b style="color:var(--ink)">Name / Candidate / Candidate Name</b> → Candidate Name<br/>
+      <b style="color:var(--ink)">Branch / Office</b> → Branch<br/>
+      <b style="color:var(--ink)">Role / Job Title / Designation / Position</b> → Designation<br/>
+      <b style="color:var(--ink)">Department / Dept / Team</b> → Department<br/>
+      <b style="color:var(--ink)">State / Province</b> → State<br/>
+      <b style="color:var(--ink)">Manager / Reporting To / Reports To</b> → Reporting To<br/>
+      <b style="color:var(--ink)">HR / Recruiter / HR Owner</b> → HR Owner<br/>
+      <b style="color:var(--ink)">Region / Zone / Area</b> → Region<br/>
+      <b style="color:var(--ink)">Status / Stage</b> → Status<br/>
+      <b style="color:var(--ink)">Sub-status / Sub Status</b> → Sub-status<br/>
+      <b style="color:var(--ink)">Application Date / Applied Date / App Date</b> → Application Date<br/>
+      <b style="color:var(--ink)">Offer Date / Offer Release Date</b> → Offer Release Date
+    </div>
+  </div>
+</div>
+
+<!-- ═══ SETUP ═══ -->
+<div id="tab-setup" class="view hidden">
+  <div class="config-banner">
+    <h2>⚙️ Google Sheets Configuration</h2>
+    <p>Your Apps Script URL is hardcoded and active. To update it, edit the SCRIPT_URL in the HTML file.</p>
+    <div class="config-input">
+      <input type="text" id="scriptUrlInput" readonly/>
+      <button class="btn btn-outline" onclick="testConn()">🔗 Test Connection</button>
+    </div>
+  </div>
+  <div class="setup-guide"><h3>Re-deploy Instructions</h3>
+    <div class="step"><div class="step-num">1</div><div><div class="step-title">Open Apps Script</div><div class="step-desc">script.google.com → your HireDesk project</div></div></div>
+    <div class="step"><div class="step-num">2</div><div><div class="step-title">Deploy New Version</div><div class="step-desc">Deploy → Manage deployments → ✏️ Edit → New version → Deploy. Keep same URL.</div></div></div>
+    <div class="step"><div class="step-num">3</div><div><div class="step-title">Push to GitHub</div><div class="step-desc">Replace HTML on GitHub → Vercel auto-deploys in ~30 seconds.</div></div></div>
+  </div>
+</div>
+
+<script>
+// ══════════════════════════════════════════════════════
+//  CONFIG
+// ══════════════════════════════════════════════════════
+const SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbw6QznfOvZ0AMi8H6eRcOBG9ZV8KD7Lw5auzZg33-r3fjB8zOiUKFbxbmPYWjDjr8XLWg/exec';
+localStorage.removeItem('hiredesk_script_url');
+
+// ══════════════════════════════════════════════════════
+//  STATE — one place, no confusion
+// ══════════════════════════════════════════════════════
+let allCandidates = [];   // full list from Sheets
+let editTarget    = null; // the EXACT candidate object being edited (reference, not ID)
+let pendingAdd    = null; // pending data for duplicate force-add
+let page          = 1;
+const PAGE        = 20;
+let refreshTimer  = null;
+
+// ══════════════════════════════════════════════════════
+//  INIT
+// ══════════════════════════════════════════════════════
+window.addEventListener('DOMContentLoaded', () => {
+  document.getElementById('scriptUrlInput').value = SCRIPT_URL;
+  loadData();
+  refreshTimer = setInterval(() => {
+    if (!editTarget) loadData(); // pause refresh while editing
+  }, 45000);
+});
+
+// ══════════════════════════════════════════════════════
+//  DATA LOAD
+// ══════════════════════════════════════════════════════
+async function loadData(manual = false) {
+  if (manual) showLoader('Refreshing…');
+  setSyncStatus('syncing');
+  try {
+    const txt  = await get('getData');
+    const json = JSON.parse(txt);
+    if (json.error) throw new Error(json.error);
+    allCandidates = (json.rows || []).map(r => ({
+      ...r,
+      Status: fixStatus(r.Status || r['Status'] || ''),
+    }));
+    renderAll();
+    setSyncStatus('ok');
+    if (manual) { hideLoader(); toast('✅ ' + allCandidates.length + ' records loaded.'); }
+  } catch(e) {
+    setSyncStatus('err');
+    if (manual) { hideLoader(); toast('Refresh failed: ' + e.message, 'err'); }
+  }
+}
+
+function fixStatus(s) {
+  const m = {'wip':'WIP','offered':'Offered','joined':'Joined','rejected':'Rejected','backed out':'Backed Out','backedout':'Backed Out','backout':'Backed Out'};
+  return m[s.trim().toLowerCase()] || s.trim();
+}
+
+// ══════════════════════════════════════════════════════
+//  API — single GET function
+// ══════════════════════════════════════════════════════
+async function get(action, params = {}) {
+  let url = SCRIPT_URL + '?action=' + action + '&t=' + Date.now();
+  for (const [k, v] of Object.entries(params)) {
+    url += '&' + k + '=' + encodeURIComponent(typeof v === 'object' ? JSON.stringify(v) : String(v));
+  }
+  const r = await fetch(url, { cache: 'no-store' });
+  return r.text();
+}
+
+// ══════════════════════════════════════════════════════
+//  TABS
+// ══════════════════════════════════════════════════════
+function switchTab(name) {
+  document.querySelectorAll('.tab').forEach(t => t.classList.toggle('active', t.dataset.tab === name));
+  ['analytics','candidates','management','upload','setup'].forEach(t =>
+    document.getElementById('tab-' + t).classList.toggle('hidden', t !== name));
+  if (name === 'analytics')  renderAnalytics();
+  if (name === 'candidates') { buildBranchFilter(); renderTable(); }
+  if (name === 'management') renderMgmt();
+}
+
+function renderAll() {
+  renderAnalytics();
+  buildBranchFilter();
+  renderTable();
+  renderMgmt();
+}
+
+// ══════════════════════════════════════════════════════
+//  FORM — read / fill / reset
+// ══════════════════════════════════════════════════════
+function g(id) { return document.getElementById(id); }
+
+function readForm() {
+  return {
+    'Candidate Name':    g('fName').value.trim(),
+    'Branch':            g('fBranch').value.trim(),
+    'Designation':       g('fDesig').value.trim(),
+    'Department':        g('fDept').value.trim(),
+    'State':             g('fState').value.trim(),
+    'Reporting To':      g('fRt').value.trim(),
+    'HR Owner':          g('fHr').value.trim(),
+    'Region':            g('fRegion').value,
+    'Status':            g('fStatus').value,
+    'Sub-status':        g('fSub').value,
+    'Application Date':  g('fAppDate').value,
+    'Offer Release Date':g('fOfferDate').value,
+  };
+}
+
+function fillForm(c) {
+  g('fName').value      = c['Candidate Name']    || '';
+  g('fBranch').value    = c['Branch']            || '';
+  g('fDesig').value     = c['Designation']       || '';
+  g('fDept').value      = c['Department']        || '';
+  g('fState').value     = c['State']             || '';
+  g('fRt').value        = c['Reporting To']      || '';
+  g('fHr').value        = c['HR Owner']          || '';
+  g('fRegion').value    = c['Region']            || '';
+  g('fStatus').value    = c['Status']            || '';
+  g('fSub').value       = c['Sub-status']        || '';
+  g('fAppDate').value   = c['Application Date']  || '';
+  g('fOfferDate').value = c['Offer Release Date']|| '';
+}
+
+function clearForm() {
+  ['fName','fBranch','fDesig','fDept','fState','fRt','fHr','fAppDate','fOfferDate'].forEach(id => {
+    g(id).value = ''; g(id).classList.remove('err');
+  });
+  ['fRegion','fStatus','fSub'].forEach(id => g(id).value = '');
+}
+
+// ══════════════════════════════════════════════════════
+//  EDIT — click ✏️ on any row
+// ══════════════════════════════════════════════════════
+function startEdit(rowIndex) {
+  // rowIndex is the index in allCandidates array — always reliable
+  const candidate = allCandidates[rowIndex];
+  if (!candidate) { toast('Could not find candidate. Refresh and try again.', 'err'); return; }
+
+  editTarget = candidate; // store the actual object reference
+
+  // Fill the form
+  fillForm(candidate);
+
+  // Update UI
+  g('formTitle').textContent = '✏️ Edit Candidate';
+  g('cardHead').classList.add('is-editing');
+  g('editBanner').classList.remove('hidden');
+  g('editBannerName').textContent = candidate['Candidate Name'] || 'candidate';
+
+  // Go to candidates tab without triggering a data reload
+  document.querySelectorAll('.tab').forEach(t => t.classList.toggle('active', t.dataset.tab === 'candidates'));
+  ['analytics','candidates','management','upload','setup'].forEach(t =>
+    document.getElementById('tab-' + t).classList.toggle('hidden', t !== 'candidates'));
+
+  // Scroll to form
+  g('cardHead').scrollIntoView({ behavior: 'smooth', block: 'start' });
+  toast('✏️ Editing ' + (candidate['Candidate Name'] || 'candidate') + ' — update fields and click Save');
+}
+
+function cancelEdit() {
+  editTarget = null;
+  clearForm();
+  g('formTitle').textContent = '➕ Add New Candidate';
+  g('cardHead').classList.remove('is-editing');
+  g('editBanner').classList.add('hidden');
+}
+
+// ══════════════════════════════════════════════════════
+//  SAVE — handles both ADD and EDIT
+// ══════════════════════════════════════════════════════
+async function saveForm() {
+  const formData = readForm();
+
+  // Validate
+  let ok = true;
+  ['fName','fBranch','fDesig'].forEach(id => {
+    const el = g(id);
+    if (!el.value.trim()) { el.classList.add('err'); ok = false; }
+    else el.classList.remove('err');
+  });
+  if (!ok) { toast('Name, Branch, and Designation are required.', 'err'); return; }
+
+  // ── EDITING an existing candidate ──────────────────
+  if (editTarget !== null) {
+    showLoader('Updating candidate…');
+    try {
+      // Build update payload: include ID + original identifiers as fallback
+      const payload = {
+        ...formData,
+        'ID':          editTarget['ID']             || '',
+        '_origName':   editTarget['Candidate Name'] || '',
+        '_origBranch': editTarget['Branch']         || '',
+        '_origDesig':  editTarget['Designation']    || '',
+      };
+      const txt  = await get('updateRow', { data: payload });
+      const json = JSON.parse(txt);
+      hideLoader();
+      if (json.error) throw new Error(json.error);
+      toast('✅ ' + formData['Candidate Name'] + ' updated successfully!');
+      cancelEdit();
+      await loadData();
+    } catch(e) {
+      hideLoader();
+      toast('❌ Update failed: ' + e.message, 'err');
+    }
+    return;
+  }
+
+  // ── ADDING a new candidate ─────────────────────────
+  const dup = allCandidates.find(c =>
+    (c['Candidate Name']||'').toLowerCase() === formData['Candidate Name'].toLowerCase() &&
+    (c['Branch']||'').toLowerCase()         === formData['Branch'].toLowerCase() &&
+    (c['Designation']||'').toLowerCase()    === formData['Designation'].toLowerCase()
+  );
+  if (dup) {
+    pendingAdd = formData;
+    g('dupMsg').textContent = '"' + formData['Candidate Name'] + '" at "' + formData['Branch'] + '" for "' + formData['Designation'] + '" already exists.';
+    g('dupModal').classList.add('open');
+    return;
+  }
+  await doAdd(formData);
+}
+
+async function doAdd(data) {
+  showLoader('Saving to Google Sheets…');
+  try {
+    const txt  = await get('addRow', { data });
+    const json = JSON.parse(txt);
+    hideLoader();
+    if (json.error === 'DUPLICATE') {
+      pendingAdd = data;
+      g('dupMsg').textContent = json.message || 'Duplicate detected.';
+      g('dupModal').classList.add('open');
+      return;
+    }
+    if (json.error) throw new Error(json.error);
+    toast('✅ ' + data['Candidate Name'] + ' added to Google Sheets!');
+    cancelEdit();
+    await loadData();
+  } catch(e) {
+    hideLoader();
+    toast('❌ Save failed: ' + e.message, 'err');
+  }
+}
+
+function closeDup() { g('dupModal').classList.remove('open'); pendingAdd = null; }
+async function forceAdd() { closeDup(); if (pendingAdd) { await doAdd(pendingAdd); pendingAdd = null; } }
+
+// ══════════════════════════════════════════════════════
+//  DELETE
+// ══════════════════════════════════════════════════════
+async function doDelete(rowIndex) {
+  const candidate = allCandidates[rowIndex];
+  if (!candidate) { toast('Could not find candidate.', 'err'); return; }
+  const name = candidate['Candidate Name'] || 'this candidate';
+  const id   = candidate['ID'] || '';
+  if (!confirm('Delete "' + name + '" permanently from Google Sheets?')) return;
+  showLoader('Deleting…');
+  try {
+    const txt  = await get('deleteRow', { id });
+    const json = JSON.parse(txt);
+    hideLoader();
+    if (json.error) throw new Error(json.error);
+    toast('🗑️ "' + name + '" deleted.', 'warn');
+    await loadData();
+  } catch(e) {
+    hideLoader();
+    toast('Delete failed: ' + e.message, 'err');
+  }
+}
+
+// ══════════════════════════════════════════════════════
+//  TABLE
+// ══════════════════════════════════════════════════════
+function filtered() {
+  const q  = (g('searchQ').value || '').toLowerCase();
+  const fs = g('fltStatus').value;
+  const fr = g('fltRegion').value;
+  const fb = g('fltBranch').value;
+  return allCandidates.filter((c, realIdx) => {
+    const mq = !q || ['Candidate Name','Branch','Designation','HR Owner','Reporting To','Department','State'].some(k => (c[k]||'').toLowerCase().includes(q));
+    return mq && (!fs || c['Status'] === fs) && (!fr || c['Region'] === fr) && (!fb || c['Branch'] === fb);
+  });
+}
+
+function buildBranchFilter() {
+  const sel = g('fltBranch'), val = sel.value;
+  const branches = [...new Set(allCandidates.map(c => c['Branch']).filter(Boolean))].sort();
+  sel.innerHTML = '<option value="">All Branches</option>' + branches.map(b => '<option' + (b===val?' selected':'') + '>' + x(b) + '</option>').join('');
+}
+
+function renderTable() {
+  const rows  = filtered();
+  const total = rows.length;
+  const pages = Math.max(1, Math.ceil(total / PAGE));
+  if (page > pages) page = 1;
+  const slice = rows.slice((page-1)*PAGE, page*PAGE);
+  g('tblCount').textContent = total + ' record' + (total!==1?'s':'');
+  const body = g('tblBody');
+  if (!slice.length) { body.innerHTML = ''; g('emptyMsg').classList.remove('hidden'); }
+  else {
+    g('emptyMsg').classList.add('hidden');
+    const RC = {Joined:'rj',WIP:'rw',Rejected:'rr','Backed Out':'rr',Offered:'ro'};
+    const BC = {Joined:'bj',Offered:'bo2',WIP:'bw',Rejected:'br','Backed Out':'bb'};
+    body.innerHTML = slice.map((c, i) => {
+      // Store the REAL index in allCandidates, not the slice index
+      const realIdx = allCandidates.indexOf(c);
+      return '<tr class="' + (RC[c['Status']]||'') + '">' +
+        '<td>' + ((page-1)*PAGE+i+1) + '</td>' +
+        '<td><strong>' + x(c['Candidate Name']) + '</strong></td>' +
+        '<td>' + x(c['Branch']) + '</td>' +
+        '<td>' + x(c['Designation']) + '</td>' +
+        '<td>' + x(c['Department']) + '</td>' +
+        '<td>' + x(c['State']) + '</td>' +
+        '<td>' + x(c['Reporting To']) + '</td>' +
+        '<td>' + x(c['HR Owner']) + '</td>' +
+        '<td>' + x(c['Region']) + '</td>' +
+        '<td><span class="badge ' + (BC[c['Status']]||'') + '">' + x(c['Status']) + '</span></td>' +
+        '<td>' + x(c['Sub-status']) + '</td>' +
+        '<td>' + x(c['Application Date']) + '</td>' +
+        '<td>' + x(c['Offer Release Date']) + '</td>' +
+        '<td><div class="act">' +
+          '<button class="ibtn edit" onclick="startEdit(' + realIdx + ')" title="Edit this candidate">✏️</button>' +
+          '<button class="ibtn del"  onclick="doDelete(' + realIdx + ')" title="Delete">🗑️</button>' +
+        '</div></td></tr>';
+    }).join('');
+  }
+  renderPager(total, pages);
+}
+
+function renderPager(total, pages) {
+  const bar = g('pager');
+  if (pages <= 1) { bar.innerHTML = ''; return; }
+  const from = (page-1)*PAGE+1, to = Math.min(page*PAGE, total);
+  let btns = '';
+  for (let p = 1; p <= pages; p++) btns += '<button class="pbtn' + (p===page?' active':'') + '" onclick="goPage(' + p + ')">' + p + '</button>';
+  bar.innerHTML = '<span class="pager-info">Showing ' + from + '–' + to + ' of ' + total + '</span><div class="pager-btns"><button class="pbtn" onclick="goPage(' + (page-1) + ')" ' + (page===1?'disabled':'') + '>‹</button>' + btns + '<button class="pbtn" onclick="goPage(' + (page+1) + ')" ' + (page===pages?'disabled':'') + '>›</button></div>';
+}
+function goPage(p) { page = p; renderTable(); }
+
+// ══════════════════════════════════════════════════════
+//  MANAGEMENT VIEW
+// ══════════════════════════════════════════════════════
+function renderMgmt() {
+  const q = (g('mgmtQ').value||'').toLowerCase();
+  const rows = allCandidates.filter(c => !q || ['Candidate Name','Branch','Designation','Reporting To'].some(k => (c[k]||'').toLowerCase().includes(q)));
+  const body = g('mgmtBody');
+  if (!rows.length) { body.innerHTML = ''; g('mgmtEmpty').classList.remove('hidden'); return; }
+  g('mgmtEmpty').classList.add('hidden');
+  body.innerHTML = rows.map((c,i) =>
+    '<tr><td>' + (i+1) + '</td><td>' + x(c['Branch']) + '</td><td><strong>' + x(c['Candidate Name']) + '</strong></td><td>' + x(c['Designation']) + '</td>' +
+    '<td>' + ((c['Status']==='Offered'||c['Status']==='Joined') ? '<span class="off-yes">✅ Yes</span>' : '<span class="off-wip">⏳ WIP</span>') + '</td>' +
+    '<td>' + x(c['Offer Release Date']) + '</td><td>' + x(c['Reporting To']) + '</td></tr>'
+  ).join('');
+}
+
+// ══════════════════════════════════════════════════════
+//  ANALYTICS
+// ══════════════════════════════════════════════════════
+function renderAnalytics() {
+  const total = allCandidates.length;
+  const wip   = allCandidates.filter(c => c['Status']==='WIP');
+  const off   = allCandidates.filter(c => c['Status']==='Offered').length;
+  const join  = allCandidates.filter(c => c['Status']==='Joined').length;
+  const rej   = allCandidates.filter(c => c['Status']==='Rejected').length;
+  const bo    = allCandidates.filter(c => c['Status']==='Backed Out').length;
+  const wipBM = wip.filter(c => (c['Sub-status']||'').toUpperCase()==='BM').length;
+  const wipHR = wip.filter(c => (c['Sub-status']||'').toUpperCase()==='HR').length;
+  const now   = new Date();
+  const l20   = allCandidates.filter(c => { const d=new Date(c['Application Date']); return !isNaN(d)&&(now-d)/86400000<=20; }).length;
+
+  g('kpiRow').innerHTML =
+    kpi('Total Candidates', total, 'cd', 'All pipeline') +
+    kpi('WIP', wip.length, 'cy', 'BM: '+wipBM+' · HR: '+wipHR) +
+    kpi('Offers Released', off, 'cb', 'Formal offers out') +
+    kpi('Joiners', join, 'cg', 'On-boarded') +
+    kpi('Rejected', rej, 'cr', 'Did not proceed') +
+    kpi('Backed Out', bo, 'cr', 'Post-offer drop') +
+    kpi('Last 20 Days', l20, 'cd', 'By application date');
+
+  bars('pipeChart', [{l:'WIP',v:wip.length,c:'#c8a000'},{l:'Offered',v:off,c:'#1a7a47'},{l:'Joined',v:join,c:'#0d4f2e'},{l:'Rejected',v:rej,c:'#c0392b'},{l:'Backed Out',v:bo,c:'#6a1b9a'}]);
+
+  const bm = {}; allCandidates.forEach(c => { if(c['Branch']) bm[c['Branch']]=(bm[c['Branch']]||0)+1; });
+  bars('branchChart', Object.entries(bm).sort((a,b)=>b[1]-a[1]).slice(0,8).map(([l,v])=>({l,v,c:'#1a7a47'})));
+
+  const rm = {}; allCandidates.forEach(c => { if(c['Region']) rm[c['Region']]=(rm[c['Region']]||0)+1; });
+  bars('regionChart', Object.entries(rm).sort((a,b)=>b[1]-a[1]).map(([l,v])=>({l,v,c:'#f5c518'})));
+}
+
+function kpi(label, val, cls, sub) {
+  return '<div class="kpi ' + cls + '"><div class="kpi-label">' + label + '</div><div class="kpi-val">' + val + '</div><div class="kpi-sub">' + sub + '</div></div>';
+}
+function bars(id, data) {
+  const el = g(id);
+  if (!data.length) { el.innerHTML = '<p style="color:var(--fog);font-size:13px">No data yet.</p>'; return; }
+  const max = Math.max(...data.map(d=>d.v), 1);
+  el.innerHTML = data.map(d =>
+    '<div class="bar-row"><div class="bar-lbl" title="' + d.l + '">' + d.l + '</div>' +
+    '<div class="bar-track"><div class="bar-fill" style="width:' + (d.v/max*100).toFixed(1) + '%;background:' + d.c + '">' + (d.v>0?'<span>'+d.v+'</span>':'') + '</div></div>' +
+    '<div class="bar-count">' + d.v + '</div></div>'
+  ).join('');
+}
+
+// ══════════════════════════════════════════════════════
+//  FILE UPLOAD
+// ══════════════════════════════════════════════════════
+const COLMAP = {
+  'Candidate Name':['candidate name','candidate','name','full name','applicant'],
+  'Branch':['branch','location branch','office','branch name'],
+  'Designation':['designation','role','job title','position','title'],
+  'Department':['department','dept','team','function','division'],
+  'State':['state','province'],
+  'Reporting To':['reporting to','reporting','manager','reports to','supervisor'],
+  'HR Owner':['hr owner','hr','hr name','recruiter','spoc','ta'],
+  'Region':['region','zone','location','area','geography'],
+  'Status':['status','stage','pipeline','current status'],
+  'Sub-status':['sub-status','sub status','substatus','category','type'],
+  'Application Date':['application date','applied date','applied on','date','app date','applied'],
+  'Offer Release Date':['offer release date','offer date','offered date','offer'],
+};
+function mapHdr(h) { const n=h.trim().toLowerCase(); for(const [f,a] of Object.entries(COLMAP)){if(a.includes(n))return f;} return null; }
+function handleDrop(e) { e.preventDefault(); processFile(e.dataTransfer.files[0]); }
+function handleUpload(inp) { if(inp.files[0]) processFile(inp.files[0]); inp.value=''; }
+function processFile(file) {
+  const ext = file.name.split('.').pop().toLowerCase();
+  const reader = new FileReader();
+  reader.onload = e => {
+    try {
+      if (ext==='csv') uploadRows(parseCSV(e.target.result));
+      else { const wb=XLSX.read(e.target.result,{type:'binary'}); uploadRows(XLSX.utils.sheet_to_json(wb.Sheets[wb.SheetNames[0]],{header:1,defval:''})); }
+    } catch(err) { toast('File error: '+err.message,'err'); }
+  };
+  if(ext==='csv') reader.readAsText(file); else reader.readAsBinaryString(file);
+}
+function parseCSV(t) { return t.split(/\r?\n/).filter(l=>l.trim()).map(l=>l.split(',').map(v=>v.replace(/^"|"$/g,'').trim())); }
+async function uploadRows(rows) {
+  if(!rows.length){toast('File empty.','err');return;}
+  const hdr=rows[0].map(h=>h.toString()), fm={};
+  hdr.forEach((h,i)=>{const f=mapHdr(h);if(f)fm[f]=i;});
+  const toUp=[];
+  for(let r=1;r<rows.length;r++){
+    const row=rows[r]; if(row.every(v=>!v)) continue;
+    const g2=f=>fm[f]!==undefined?(row[fm[f]]||'').toString().trim():'';
+    toUp.push({'Candidate Name':g2('Candidate Name'),'Branch':g2('Branch'),'Designation':g2('Designation'),'Department':g2('Department'),'State':g2('State'),'Reporting To':g2('Reporting To'),'HR Owner':g2('HR Owner'),'Region':g2('Region'),'Status':fixStatus(g2('Status')),'Sub-status':g2('Sub-status').toUpperCase()||g2('Sub-status'),'Application Date':fixDate(g2('Application Date')),'Offer Release Date':fixDate(g2('Offer Release Date'))});
+  }
+  if(!toUp.length){toast('No valid rows.','warn');return;}
+  showLoader('Uploading '+toUp.length+' rows…');
+  try {
+    const txt=await get('bulkAdd',{rows:toUp});
+    const json=JSON.parse(txt); hideLoader();
+    toast('✅ '+json.added+' added, '+json.dupes+' duplicates skipped.');
+    await loadData();
+  } catch(e){hideLoader();toast('Upload failed: '+e.message,'err');}
+}
+function fixDate(s){if(!s)return'';const d=new Date(s);if(!isNaN(d))return d.toISOString().split('T')[0];const p=s.split(/[\/\-\.]/);if(p.length===3){const a=new Date(p[2]+'-'+p[1].padStart(2,'0')+'-'+p[0].padStart(2,'0'));if(!isNaN(a))return a.toISOString().split('T')[0];}return s;}
+
+// ══════════════════════════════════════════════════════
+//  DOWNLOAD
+// ══════════════════════════════════════════════════════
+const DLFIELDS=['Candidate Name','Branch','Designation','Department','State','Reporting To','HR Owner','Region','Status','Sub-status','Application Date','Offer Release Date'];
+function downloadCSV(){const r=[DLFIELDS.join(','),...allCandidates.map(c=>DLFIELDS.map(f=>'"'+(c[f]||'').replace(/"/g,'""')+'"').join(','))].join('\n');const a=document.createElement('a');a.href=URL.createObjectURL(new Blob([r],{type:'text/csv'}));a.download='HireDesk_'+new Date().toISOString().split('T')[0]+'.csv';a.click();toast('📥 CSV downloaded.');}
+function downloadExcel(){const d=[DLFIELDS,...allCandidates.map(c=>DLFIELDS.map(f=>c[f]||''))];const wb=XLSX.utils.book_new();const ws=XLSX.utils.aoa_to_sheet(d);ws['!cols']=DLFIELDS.map(()=>({wch:22}));XLSX.utils.book_append_sheet(wb,ws,'Candidates');XLSX.writeFile(wb,'HireDesk_'+new Date().toISOString().split('T')[0]+'.xlsx');toast('📥 Excel downloaded.');}
+
+// ══════════════════════════════════════════════════════
+//  HELPERS
+// ══════════════════════════════════════════════════════
+function x(v){return(v||'').toString().replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');}
+function toast(msg,type=''){const c=g('toasts');const t=document.createElement('div');t.className='toast'+(type===' err'?' err':type==='err'?' err':type==='warn'?' warn':'');t.textContent=msg;c.appendChild(t);setTimeout(()=>{t.style.animation='tso .4s ease forwards';setTimeout(()=>t.remove(),400);},4500);}
+function showLoader(msg='Loading…'){g('loaderMsg').textContent=msg;g('loader').classList.add('on');}
+function hideLoader(){g('loader').classList.remove('on');}
+function setSyncStatus(s){const el=g('syncTxt'),dot=g('livePill'),now=new Date().toLocaleTimeString('en-IN',{hour:'2-digit',minute:'2-digit'});if(s==='ok'){el.textContent='Synced '+now;dot.style.opacity='1';}if(s==='syncing'){el.textContent='Syncing…';dot.style.opacity='.6';}if(s==='err'){el.textContent='Sync error';dot.style.opacity='.3';}}
+async function testConn(){showLoader('Testing…');try{const r=await fetch(SCRIPT_URL+'?action=health');const d=await r.json();hideLoader();if(d.status==='ok')toast('✅ Connected! Sheet: '+d.sheet);else toast('Issue: '+JSON.stringify(d),'warn');}catch(e){hideLoader();toast('Failed: '+e.message,'err');}}
+</script>
+</body>
+</html>
