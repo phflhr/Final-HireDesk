@@ -135,6 +135,13 @@ tbody td{padding:9px 14px;vertical-align:middle}
 .loader p{color:#fff;font-weight:500}
 
 .mgmt-th th{background:var(--g900)!important}
+.bm-table{width:100%;border-collapse:collapse;font-size:13px}
+.bm-table thead th{background:var(--g800);color:#fff;padding:9px 12px;text-align:left;font-size:10px;font-weight:700;letter-spacing:.8px;text-transform:uppercase}
+.bm-table tbody tr{border-bottom:1px solid var(--border)}
+.bm-table tbody tr:hover{background:var(--g50)}
+.bm-table tbody td{padding:8px 12px;vertical-align:middle}
+.bm-table tfoot td{padding:9px 12px;font-weight:700;background:var(--g50);font-size:12px}
+.status-pills{display:flex;gap:4px;flex-wrap:wrap}
 .off-yes{color:var(--g600);font-weight:700}.off-wip{color:var(--y800);font-weight:700}
 .file-input{display:none}
 .sec-hdr{display:flex;align-items:center;justify-content:space-between;margin-bottom:14px;flex-wrap:wrap;gap:8px}
@@ -208,12 +215,42 @@ tbody td{padding:9px 14px;vertical-align:middle}
     <div class="sec-title">Recruitment Analytics <small>Live from Google Sheets</small></div>
     <button class="btn btn-green btn-sm" onclick="loadData(true)">🔄 Refresh</button>
   </div>
+
+  <!-- KPI CARDS -->
   <div class="kpi-row" id="kpiRow"></div>
-  <div class="chart-section">
-    <div class="chart-card"><div class="chart-title">Pipeline Breakdown</div><div id="pipeChart"></div></div>
-    <div class="chart-card"><div class="chart-title">Branch Distribution</div><div id="branchChart"></div></div>
+
+  <!-- ROW 1: Pipeline + Region -->
+  <div class="chart-section" style="margin-bottom:16px">
+    <div class="chart-card">
+      <div class="chart-title">📊 Pipeline Breakdown</div>
+      <div id="pipeChart"></div>
+    </div>
+    <div class="chart-card">
+      <div class="chart-title">🗺️ Region Summary</div>
+      <div id="regionChart"></div>
+    </div>
   </div>
-  <div class="chart-card"><div class="chart-title">Region Summary</div><div id="regionChart"></div></div>
+
+  <!-- ROW 2: All Branches (full, scrollable) -->
+  <div class="chart-card" style="margin-bottom:16px">
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px">
+      <div class="chart-title" style="margin-bottom:0">🏢 All Branch Distribution</div>
+      <span id="branchTotalBadge" style="font-size:12px;font-weight:600;color:var(--fog)"></span>
+    </div>
+    <div id="branchChart" style="max-height:400px;overflow-y:auto;padding-right:6px"></div>
+  </div>
+
+  <!-- ROW 3: BM Dropdown — RMs under BM with status -->
+  <div class="chart-card">
+    <div style="display:flex;align-items:center;gap:14px;margin-bottom:18px;flex-wrap:wrap">
+      <div class="chart-title" style="margin-bottom:0">👤 BM-wise RM Tracker</div>
+      <select id="bmSelect" class="fsel" onchange="renderBMChart()" style="min-width:200px">
+        <option value="">— Select BM (Reporting To) —</option>
+      </select>
+      <span id="bmTotalBadge" style="font-size:12px;font-weight:600;color:var(--fog)"></span>
+    </div>
+    <div id="bmChart"><p style="color:var(--fog);font-size:13px">Select a BM above to see all candidates reporting to them.</p></div>
+  </div>
 </div>
 
 <!-- ═══ CANDIDATES ═══ -->
@@ -711,6 +748,7 @@ function renderAnalytics() {
   const now   = new Date();
   const l20   = allCandidates.filter(c => { const d=new Date(c['Application Date']); return !isNaN(d)&&(now-d)/86400000<=20; }).length;
 
+  // KPI Cards
   g('kpiRow').innerHTML =
     kpi('Total Candidates', total, 'cd', 'All pipeline') +
     kpi('WIP', wip.length, 'cy', 'BM: '+wipBM+' · HR: '+wipHR) +
@@ -720,13 +758,91 @@ function renderAnalytics() {
     kpi('Backed Out', bo, 'cr', 'Post-offer drop') +
     kpi('Last 20 Days', l20, 'cd', 'By application date');
 
-  bars('pipeChart', [{l:'WIP',v:wip.length,c:'#c8a000'},{l:'Offered',v:off,c:'#1a7a47'},{l:'Joined',v:join,c:'#0d4f2e'},{l:'Rejected',v:rej,c:'#c0392b'},{l:'Backed Out',v:bo,c:'#6a1b9a'}]);
+  // Chart 1: Pipeline Breakdown
+  bars('pipeChart', [
+    {l:'WIP',        v:wip.length, c:'#c8a000'},
+    {l:'Offered',    v:off,        c:'#1a7a47'},
+    {l:'Joined',     v:join,       c:'#0d4f2e'},
+    {l:'Rejected',   v:rej,        c:'#c0392b'},
+    {l:'Backed Out', v:bo,         c:'#6a1b9a'},
+  ]);
 
-  const bm = {}; allCandidates.forEach(c => { if(c['Branch']) bm[c['Branch']]=(bm[c['Branch']]||0)+1; });
-  bars('branchChart', Object.entries(bm).sort((a,b)=>b[1]-a[1]).slice(0,8).map(([l,v])=>({l,v,c:'#1a7a47'})));
+  // Chart 2: Region Summary (fixed 4 regions always shown)
+  const REGIONS = ['North 1','North 2','West','South'];
+  const rm = {};
+  allCandidates.forEach(c => { if(c['Region']) rm[c['Region']] = (rm[c['Region']]||0)+1; });
+  bars('regionChart', REGIONS.map(r => ({l:r, v:rm[r]||0, c:'#f5c518'})));
 
-  const rm = {}; allCandidates.forEach(c => { if(c['Region']) rm[c['Region']]=(rm[c['Region']]||0)+1; });
-  bars('regionChart', Object.entries(rm).sort((a,b)=>b[1]-a[1]).map(([l,v])=>({l,v,c:'#f5c518'})));
+  // Chart 3: ALL Branches — no limit, scrollable
+  const bm = {};
+  allCandidates.forEach(c => { if(c['Branch']) bm[c['Branch']] = (bm[c['Branch']]||0)+1; });
+  const branchEntries = Object.entries(bm).sort((a,b) => b[1]-a[1]);
+  g('branchTotalBadge').textContent = branchEntries.length + ' branches · ' + total + ' total candidates';
+  bars('branchChart', branchEntries.map(([l,v]) => ({l, v, c:'#1a7a47'})));
+
+  // Chart 4: Populate BM dropdown (unique Reporting To values)
+  const bmNames = [...new Set(allCandidates.map(c => (c['Reporting To']||'').trim()).filter(Boolean))].sort();
+  const bmSel = g('bmSelect');
+  const prevVal = bmSel.value;
+  bmSel.innerHTML = '<option value="">— Select BM (Reporting To) —</option>' +
+    bmNames.map(n => '<option value="' + x(n) + '"' + (n===prevVal?' selected':'') + '>' + x(n) + '</option>').join('');
+  if (prevVal) renderBMChart();
+}
+
+function renderBMChart() {
+  const bm = g('bmSelect').value;
+  const el = g('bmChart');
+  const badge = g('bmTotalBadge');
+  if (!bm) {
+    el.innerHTML = '<p style="color:var(--fog);font-size:13px">Select a BM above to see all candidates reporting to them.</p>';
+    badge.textContent = '';
+    return;
+  }
+
+  // All candidates under this BM
+  const under = allCandidates.filter(c => (c['Reporting To']||'').trim() === bm);
+  if (!under.length) {
+    el.innerHTML = '<p style="color:var(--fog);font-size:13px">No candidates found under this BM.</p>';
+    badge.textContent = '';
+    return;
+  }
+
+  // Status counts for badge
+  const sc = {};
+  under.forEach(c => { sc[c['Status']] = (sc[c['Status']]||0)+1; });
+  const statusOrder = ['WIP','Offered','Joined','Rejected','Backed Out'];
+  const BC = {Joined:'bj',Offered:'bo2',WIP:'bw',Rejected:'br','Backed Out':'bb'};
+  badge.textContent = under.length + ' candidate' + (under.length!==1?'s':'') + ' under this BM';
+
+  // Summary pills row
+  const pills = statusOrder.filter(s => sc[s]).map(s =>
+    '<span class="badge ' + (BC[s]||'') + '" style="margin-right:4px">' + s + ': ' + sc[s] + '</span>'
+  ).join('');
+
+  // Table of all candidates under this BM
+  el.innerHTML =
+    '<div style="margin-bottom:12px">' + pills + '</div>' +
+    '<div style="overflow-x:auto"><table class="bm-table">' +
+    '<thead><tr><th>#</th><th>Candidate Name</th><th>Branch</th><th>Designation</th><th>Region</th><th>Status</th><th>Sub-status</th><th>App Date</th><th>Offer Date</th></tr></thead>' +
+    '<tbody>' +
+    under.map((c,i) =>
+      '<tr>' +
+      '<td>' + (i+1) + '</td>' +
+      '<td><strong>' + x(c['Candidate Name']) + '</strong></td>' +
+      '<td>' + x(c['Branch']) + '</td>' +
+      '<td>' + x(c['Designation']) + '</td>' +
+      '<td>' + x(c['Region']) + '</td>' +
+      '<td><span class="badge ' + (BC[c['Status']]||'') + '">' + x(c['Status']) + '</span></td>' +
+      '<td>' + x(c['Sub-status']) + '</td>' +
+      '<td>' + x(c['Application Date']) + '</td>' +
+      '<td>' + x(c['Offer Release Date']) + '</td>' +
+      '</tr>'
+    ).join('') +
+    '</tbody>' +
+    '<tfoot><tr><td colspan="2"><strong>Total: ' + under.length + '</strong></td>' +
+    statusOrder.filter(s=>sc[s]).map(s => '<td colspan="1" style="color:var(--fog)">' + s + ': <strong>' + sc[s] + '</strong></td>').join('') +
+    '</tr></tfoot>' +
+    '</table></div>';
 }
 
 function kpi(label, val, cls, sub) {
