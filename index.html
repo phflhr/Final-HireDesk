@@ -49,13 +49,27 @@ body{font-family:var(--fb);background:var(--bg);color:var(--ink);min-height:100v
 .btn-sm{padding:5px 10px;font-size:12px}
 
 /* KPI */
-.kpi-row{display:grid;grid-template-columns:repeat(auto-fill,minmax(155px,1fr));gap:14px;margin-bottom:24px}
-.kpi{background:var(--white);border-radius:var(--r);padding:18px 18px 14px;box-shadow:var(--shadow-sm);border-top:4px solid transparent}
-.kpi.cg{border-top-color:var(--g500)}.kpi.cy{border-top-color:var(--y500)}.kpi.cr{border-top-color:var(--r600)}.kpi.cd{border-top-color:var(--g800)}.kpi.cb{border-top-color:#3b82f6}
-.kpi-label{font-size:10px;font-weight:700;letter-spacing:1px;text-transform:uppercase;color:var(--fog);margin-bottom:8px}
-.kpi-val{font-family:var(--fd);font-size:36px;font-weight:700;line-height:1}
-.kpi.cg .kpi-val{color:var(--g600)}.kpi.cy .kpi-val{color:var(--y800)}.kpi.cr .kpi-val{color:var(--r600)}.kpi.cd .kpi-val{color:var(--g800)}
-.kpi-sub{font-size:11px;color:var(--fog);margin-top:5px}
+.kpi-row{display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:14px;margin-bottom:24px}
+.kpi{background:var(--white);border-radius:var(--r);padding:16px 18px 14px;box-shadow:var(--shadow-sm);border-top:4px solid transparent}
+.kpi.cg{border-top-color:var(--g500)}.kpi.cy{border-top-color:var(--y500)}.kpi.cr{border-top-color:var(--r600)}.kpi.cd{border-top-color:var(--g800)}.kpi.cb{border-top-color:#3b82f6}.kpi.cp{border-top-color:#8b5cf6}
+.kpi-label{font-size:10px;font-weight:700;letter-spacing:1px;text-transform:uppercase;color:var(--fog);margin-bottom:10px}
+.kpi-val{font-family:var(--fd);font-size:32px;font-weight:700;line-height:1}
+.kpi.cg .kpi-val{color:var(--g600)}.kpi.cy .kpi-val{color:var(--y800)}.kpi.cr .kpi-val{color:var(--r600)}.kpi.cd .kpi-val{color:var(--g800)}.kpi.cp .kpi-val{color:#7c3aed}
+.kpi-sub{font-size:11px;color:var(--fog);margin-top:6px}
+/* Split company row inside KPI */
+.kpi-split{display:flex;gap:0;margin-top:10px;border-top:1px solid var(--border);padding-top:10px}
+.kpi-split-item{flex:1;text-align:center;padding:0 4px}
+.kpi-split-item:first-child{border-right:1px solid var(--border)}
+.kpi-split-label{font-size:9px;font-weight:800;letter-spacing:1px;text-transform:uppercase;margin-bottom:3px}
+.kpi-split-label.phfl{color:#1a7a47}
+.kpi-split-label.chfl{color:#7c3aed}
+.kpi-split-val{font-family:var(--fd);font-size:20px;font-weight:700;color:var(--ink)}
+/* Company filter bar */
+.company-filter{display:flex;gap:8px;align-items:center;margin-bottom:18px;flex-wrap:wrap}
+.co-btn{padding:6px 18px;border-radius:100px;border:2px solid var(--border);background:var(--white);font-family:var(--fb);font-size:12px;font-weight:700;cursor:pointer;transition:all .2s;letter-spacing:.5px}
+.co-btn.all{border-color:var(--g800);background:var(--g800);color:#fff}
+.co-btn.phfl-active{border-color:var(--g600);background:var(--g600);color:#fff}
+.co-btn.chfl-active{border-color:#7c3aed;background:#7c3aed;color:#fff}
 
 /* CARD / FORM */
 .card{background:var(--white);border-radius:var(--r);box-shadow:var(--shadow-sm);overflow:hidden;margin-bottom:18px}
@@ -214,6 +228,15 @@ tbody td{padding:9px 14px;vertical-align:middle}
   <div class="sec-hdr">
     <div class="sec-title">Recruitment Analytics <small>Live from Google Sheets</small></div>
     <button class="btn btn-green btn-sm" onclick="loadData(true)">🔄 Refresh</button>
+  </div>
+
+  <!-- COMPANY FILTER -->
+  <div class="company-filter">
+    <span style="font-size:12px;font-weight:700;color:var(--fog);letter-spacing:.5px;text-transform:uppercase">Filter by Company:</span>
+    <button class="co-btn all" id="coBtnAll"  onclick="setCompany('all')">🏢 All</button>
+    <button class="co-btn" id="coBtnPHFL" onclick="setCompany('PHFL')">PHFL</button>
+    <button class="co-btn" id="coBtnCHFL" onclick="setCompany('CHFL')">CHFL</button>
+    <span id="coCount" style="font-size:12px;color:var(--fog);margin-left:4px"></span>
   </div>
 
   <!-- KPI CARDS -->
@@ -392,6 +415,29 @@ let pendingAdd    = null; // pending data for duplicate force-add
 let page          = 1;
 const PAGE        = 20;
 let refreshTimer  = null;
+let activeCompany = 'all'; // 'all' | 'PHFL' | 'CHFL'
+
+function getCompany(c) {
+  // Extract company from the ID column (PHFL or CHFL)
+  const id = (c['ID'] || '').toString().trim().toUpperCase();
+  if (id === 'PHFL' || id.startsWith('PHFL')) return 'PHFL';
+  if (id === 'CHFL' || id.startsWith('CHFL')) return 'CHFL';
+  return 'OTHER';
+}
+
+function setCompany(co) {
+  activeCompany = co;
+  // Update button styles
+  document.getElementById('coBtnAll').className  = 'co-btn' + (co==='all'  ? ' all' : '');
+  document.getElementById('coBtnPHFL').className = 'co-btn' + (co==='PHFL' ? ' phfl-active' : '');
+  document.getElementById('coBtnCHFL').className = 'co-btn' + (co==='CHFL' ? ' chfl-active' : '');
+  renderAll();
+}
+
+function filteredByCompany() {
+  if (activeCompany === 'all') return allCandidates;
+  return allCandidates.filter(c => getCompany(c) === activeCompany);
+}
 
 // ══════════════════════════════════════════════════════
 //  INIT
@@ -652,11 +698,12 @@ async function doDelete(rowIndex) {
 //  TABLE
 // ══════════════════════════════════════════════════════
 function filtered() {
-  const q  = (g('searchQ').value || '').toLowerCase();
-  const fs = g('fltStatus').value;
-  const fr = g('fltRegion').value;
-  const fb = g('fltBranch').value;
-  return allCandidates.filter((c, realIdx) => {
+  const q    = (g('searchQ').value || '').toLowerCase();
+  const fs   = g('fltStatus').value;
+  const fr   = g('fltRegion').value;
+  const fb   = g('fltBranch').value;
+  const pool = filteredByCompany();
+  return pool.filter(c => {
     const mq = !q || ['Candidate Name','Branch','Designation','HR Owner','Reporting To','Department','State'].some(k => (c[k]||'').toLowerCase().includes(q));
     return mq && (!fs || c['Status'] === fs) && (!fr || c['Region'] === fr) && (!fb || c['Branch'] === fb);
   });
@@ -737,28 +784,78 @@ function renderMgmt() {
 //  ANALYTICS
 // ══════════════════════════════════════════════════════
 function renderAnalytics() {
-  const total = allCandidates.length;
-  const wip   = allCandidates.filter(c => c['Status']==='WIP');
-  const off   = allCandidates.filter(c => c['Status']==='Offered').length;
-  const join  = allCandidates.filter(c => c['Status']==='Joined').length;
-  const rej   = allCandidates.filter(c => c['Status']==='Rejected').length;
-  const bo    = allCandidates.filter(c => c['Status']==='Backed Out').length;
+  const pool  = filteredByCompany(); // respects company filter
+  const phfl  = allCandidates.filter(c => getCompany(c) === 'PHFL');
+  const chfl  = allCandidates.filter(c => getCompany(c) === 'CHFL');
+
+  // Update count badge
+  g('coCount').textContent = activeCompany === 'all'
+    ? 'PHFL: ' + phfl.length + ' · CHFL: ' + chfl.length + ' · Total: ' + allCandidates.length
+    : pool.length + ' candidates';
+
+  const total = pool.length;
+  const wip   = pool.filter(c => c['Status']==='WIP');
+  const off   = pool.filter(c => c['Status']==='Offered').length;
+  const join  = pool.filter(c => c['Status']==='Joined').length;
+  const rej   = pool.filter(c => c['Status']==='Rejected').length;
+  const bo    = pool.filter(c => c['Status']==='Backed Out').length;
   const wipBM = wip.filter(c => (c['Sub-status']||'').toUpperCase()==='BM').length;
   const wipHR = wip.filter(c => (c['Sub-status']||'').toUpperCase()==='HR').length;
-  const now   = new Date();
-  const l20   = allCandidates.filter(c => { const d=new Date(c['Application Date']); return !isNaN(d)&&(now-d)/86400000<=20; }).length;
+  const conv  = total > 0 ? ((join / total) * 100).toFixed(1) + '%' : '0%';
 
-  // KPI Cards
+  // Helper: split count by company
+  function split(arr, statusFn) {
+    const p = statusFn ? phfl.filter(statusFn).length : phfl.filter(c=>arr.includes(c)).length;
+    const c2 = statusFn ? chfl.filter(statusFn).length : chfl.filter(c=>arr.includes(c)).length;
+    return splitHTML(p, c2);
+  }
+  function splitCount(status) {
+    return splitHTML(
+      phfl.filter(c => c['Status']===status).length,
+      chfl.filter(c => c['Status']===status).length
+    );
+  }
+  function splitHTML(p, c2) {
+    return '<div class="kpi-split">' +
+      '<div class="kpi-split-item"><div class="kpi-split-label phfl">PHFL</div><div class="kpi-split-val">' + p + '</div></div>' +
+      '<div class="kpi-split-item"><div class="kpi-split-label chfl">CHFL</div><div class="kpi-split-val">' + c2 + '</div></div>' +
+      '</div>';
+  }
+
+  // KPI Cards — split only shown on 'All', single view on PHFL/CHFL
+  const showSplit = activeCompany === 'all';
+
+  function kpiCard(label, val, cls, sub) {
+    if (showSplit) {
+      // Show big total + PHFL/CHFL split below
+      return kpiSplit(label, val, cls, sub,
+        label === 'Total Candidates' ? splitHTML(phfl.length, chfl.length) :
+        label === 'WIP'              ? splitCount('WIP') :
+        label === 'Offers Released'  ? splitCount('Offered') :
+        label === 'Joiners'          ? splitCount('Joined') :
+        label === 'Rejected'         ? splitCount('Rejected') :
+        label === 'Backed Out'       ? splitCount('Backed Out') :
+        splitHTML(
+          phfl.length>0 ? ((phfl.filter(c=>c['Status']==='Joined').length/phfl.length)*100).toFixed(1)+'%' : '0%',
+          chfl.length>0 ? ((chfl.filter(c=>c['Status']==='Joined').length/chfl.length)*100).toFixed(1)+'%' : '0%'
+        )
+      );
+    } else {
+      // Single company selected — just show that company's number, no split
+      return kpi(label, val, cls, sub);
+    }
+  }
+
   g('kpiRow').innerHTML =
-    kpi('Total Candidates', total, 'cd', 'All pipeline') +
-    kpi('WIP', wip.length, 'cy', 'BM: '+wipBM+' · HR: '+wipHR) +
-    kpi('Offers Released', off, 'cb', 'Formal offers out') +
-    kpi('Joiners', join, 'cg', 'On-boarded') +
-    kpi('Rejected', rej, 'cr', 'Did not proceed') +
-    kpi('Backed Out', bo, 'cr', 'Post-offer drop') +
-    kpi('Last 20 Days', l20, 'cd', 'By application date');
+    kpiCard('Total Candidates', total, 'cd', 'All pipeline') +
+    kpiCard('WIP', wip.length, 'cy', 'BM: '+wipBM+' · HR: '+wipHR) +
+    kpiCard('Offers Released', off, 'cb', 'Formal offers out') +
+    kpiCard('Joiners', join, 'cg', 'On-boarded') +
+    kpiCard('Rejected', rej, 'cr', 'Did not proceed') +
+    kpiCard('Backed Out', bo, 'cr', 'Post-offer drop') +
+    kpiCard('Conversion Rate', conv, 'cp', 'Joined ÷ Total');
 
-  // Chart 1: Pipeline Breakdown
+  // Chart 1: Pipeline Breakdown (filtered by company)
   bars('pipeChart', [
     {l:'WIP',        v:wip.length, c:'#c8a000'},
     {l:'Offered',    v:off,        c:'#1a7a47'},
@@ -767,21 +864,21 @@ function renderAnalytics() {
     {l:'Backed Out', v:bo,         c:'#6a1b9a'},
   ]);
 
-  // Chart 2: Region Summary (fixed 4 regions always shown)
+  // Chart 2: Region Summary — fixed 4 regions, filtered by company
   const REGIONS = ['North 1','North 2','West','South'];
   const rm = {};
-  allCandidates.forEach(c => { if(c['Region']) rm[c['Region']] = (rm[c['Region']]||0)+1; });
+  pool.forEach(c => { if(c['Region']) rm[c['Region']] = (rm[c['Region']]||0)+1; });
   bars('regionChart', REGIONS.map(r => ({l:r, v:rm[r]||0, c:'#f5c518'})));
 
-  // Chart 3: ALL Branches — no limit, scrollable
+  // Chart 3: ALL Branches — no limit, scrollable, filtered by company
   const bm = {};
-  allCandidates.forEach(c => { if(c['Branch']) bm[c['Branch']] = (bm[c['Branch']]||0)+1; });
+  pool.forEach(c => { if(c['Branch']) bm[c['Branch']] = (bm[c['Branch']]||0)+1; });
   const branchEntries = Object.entries(bm).sort((a,b) => b[1]-a[1]);
-  g('branchTotalBadge').textContent = branchEntries.length + ' branches · ' + total + ' total candidates';
+  g('branchTotalBadge').textContent = branchEntries.length + ' branches · ' + pool.length + ' candidates';
   bars('branchChart', branchEntries.map(([l,v]) => ({l, v, c:'#1a7a47'})));
 
-  // Chart 4: Populate BM dropdown (unique Reporting To values)
-  const bmNames = [...new Set(allCandidates.map(c => (c['Reporting To']||'').trim()).filter(Boolean))].sort();
+  // Chart 4: Populate BM dropdown — filtered by company
+  const bmNames = [...new Set(pool.map(c => (c['Reporting To']||'').trim()).filter(Boolean))].sort();
   const bmSel = g('bmSelect');
   const prevVal = bmSel.value;
   bmSel.innerHTML = '<option value="">— Select BM (Reporting To) —</option>' +
@@ -800,7 +897,7 @@ function renderBMChart() {
   }
 
   // All candidates under this BM
-  const under = allCandidates.filter(c => (c['Reporting To']||'').trim() === bm);
+  const under = filteredByCompany().filter(c => (c['Reporting To']||'').trim() === bm);
   if (!under.length) {
     el.innerHTML = '<p style="color:var(--fog);font-size:13px">No candidates found under this BM.</p>';
     badge.textContent = '';
@@ -847,6 +944,14 @@ function renderBMChart() {
 
 function kpi(label, val, cls, sub) {
   return '<div class="kpi ' + cls + '"><div class="kpi-label">' + label + '</div><div class="kpi-val">' + val + '</div><div class="kpi-sub">' + sub + '</div></div>';
+}
+function kpiSplit(label, val, cls, sub, splitHtml) {
+  return '<div class="kpi ' + cls + '">' +
+    '<div class="kpi-label">' + label + '</div>' +
+    '<div class="kpi-val">' + val + '</div>' +
+    '<div class="kpi-sub">' + sub + '</div>' +
+    splitHtml +
+    '</div>';
 }
 function bars(id, data) {
   const el = g(id);
