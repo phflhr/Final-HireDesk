@@ -149,6 +149,15 @@ tbody td{padding:9px 14px;vertical-align:middle}
 .loader p{color:#fff;font-weight:500}
 
 .mgmt-th th{background:var(--g900)!important}
+/* Stacked bar charts */
+.stacked-bar-row{display:flex;align-items:center;gap:10px;margin-bottom:10px}
+.stacked-bar-lbl{width:90px;font-size:11px;font-weight:600;color:var(--fog);text-align:right;flex-shrink:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.stacked-bar-track{flex:1;background:var(--border);border-radius:100px;height:22px;overflow:hidden;display:flex}
+.stacked-seg{height:100%;display:flex;align-items:center;justify-content:center;font-size:10px;font-weight:700;color:#fff;transition:width .5s ease;overflow:hidden;white-space:nowrap}
+.stacked-bar-total{width:32px;font-size:12px;font-weight:700;color:var(--ink);text-align:right}
+.chart-legend{display:flex;gap:14px;flex-wrap:wrap;margin-bottom:14px}
+.legend-item{display:flex;align-items:center;gap:5px;font-size:11px;font-weight:600;color:var(--fog)}
+.legend-dot{width:10px;height:10px;border-radius:3px;flex-shrink:0}
 .bm-table{width:100%;border-collapse:collapse;font-size:13px}
 .bm-table thead th{background:var(--g800);color:#fff;padding:9px 12px;text-align:left;font-size:10px;font-weight:700;letter-spacing:.8px;text-transform:uppercase}
 .bm-table tbody tr{border-bottom:1px solid var(--border)}
@@ -855,27 +864,34 @@ function renderAnalytics() {
     kpiCard('Backed Out', bo, 'cr', 'Post-offer drop') +
     kpiCard('Conversion Rate', conv, 'cp', 'Joined ÷ Total');
 
-  // Chart 1: Pipeline Breakdown (filtered by company)
-  bars('pipeChart', [
-    {l:'WIP',        v:wip.length, c:'#c8a000'},
-    {l:'Offered',    v:off,        c:'#1a7a47'},
-    {l:'Joined',     v:join,       c:'#0d4f2e'},
-    {l:'Rejected',   v:rej,        c:'#c0392b'},
-    {l:'Backed Out', v:bo,         c:'#6a1b9a'},
-  ]);
+  // Chart 1: Pipeline — stacked PHFL+CHFL on All, single on filtered
+  pipelineChart('pipeChart', pool, phfl, chfl);
 
-  // Chart 2: Region Summary — fixed 4 regions, filtered by company
+  // Chart 2: Region Summary — fixed 4 regions, stacked PHFL+CHFL on All
   const REGIONS = ['North 1','North 2','West','South'];
-  const rm = {};
-  pool.forEach(c => { if(c['Region']) rm[c['Region']] = (rm[c['Region']]||0)+1; });
-  bars('regionChart', REGIONS.map(r => ({l:r, v:rm[r]||0, c:'#f5c518'})));
+  if (activeCompany === 'all') {
+    const legend = [{l:'PHFL',c:'#0d4f2e'},{l:'CHFL',c:'#f5c518'}];
+    const data = REGIONS.map(r => ({
+      label: r,
+      total: (phfl.filter(c=>c['Region']===r).length) + (chfl.filter(c=>c['Region']===r).length),
+      segments: [
+        {v:phfl.filter(c=>c['Region']===r).length, c:'#0d4f2e', l:'PHFL'},
+        {v:chfl.filter(c=>c['Region']===r).length, c:'#f5c518', l:'CHFL'},
+      ]
+    }));
+    stackedBars('regionChart', data, legend);
+  } else {
+    const rm = {};
+    pool.forEach(c => { if(c['Region']) rm[c['Region']] = (rm[c['Region']]||0)+1; });
+    bars('regionChart', REGIONS.map(r => ({l:r, v:rm[r]||0, c:'#f5c518'})));
+  }
 
-  // Chart 3: ALL Branches — no limit, scrollable, filtered by company
-  const bm = {};
-  pool.forEach(c => { if(c['Branch']) bm[c['Branch']] = (bm[c['Branch']]||0)+1; });
-  const branchEntries = Object.entries(bm).sort((a,b) => b[1]-a[1]);
+  // Chart 3: Branch stacked — WIP/Offered/Joined per branch
+  const branchCount = {};
+  pool.forEach(c => { if(c['Branch']) branchCount[c['Branch']] = (branchCount[c['Branch']]||0)+1; });
+  const branchEntries = Object.entries(branchCount).sort((a,b) => b[1]-a[1]);
   g('branchTotalBadge').textContent = branchEntries.length + ' branches · ' + pool.length + ' candidates';
-  bars('branchChart', branchEntries.map(([l,v]) => ({l, v, c:'#1a7a47'})));
+  branchStackedChart('branchChart', pool);
 
   // Chart 4: Populate BM dropdown — filtered by company
   const bmNames = [...new Set(pool.map(c => (c['Reporting To']||'').trim()).filter(Boolean))].sort();
@@ -953,6 +969,7 @@ function kpiSplit(label, val, cls, sub, splitHtml) {
     splitHtml +
     '</div>';
 }
+// Simple single-colour bar chart
 function bars(id, data) {
   const el = g(id);
   if (!data.length) { el.innerHTML = '<p style="color:var(--fog);font-size:13px">No data yet.</p>'; return; }
@@ -962,6 +979,95 @@ function bars(id, data) {
     '<div class="bar-track"><div class="bar-fill" style="width:' + (d.v/max*100).toFixed(1) + '%;background:' + d.c + '">' + (d.v>0?'<span>'+d.v+'</span>':'') + '</div></div>' +
     '<div class="bar-count">' + d.v + '</div></div>'
   ).join('');
+}
+
+// Stacked bar chart — segments: [{label, color, value}, ...]
+// data: [{label, total, segments:[{v, c, l}]}]
+function stackedBars(id, data, legendItems) {
+  const el = g(id);
+  if (!data.length) { el.innerHTML = '<p style="color:var(--fog);font-size:13px">No data yet.</p>'; return; }
+  const max = Math.max(...data.map(d => d.total), 1);
+
+  // Legend
+  const legend = legendItems ? '<div class="chart-legend">' +
+    legendItems.map(l => '<div class="legend-item"><div class="legend-dot" style="background:' + l.c + '"></div>' + l.l + '</div>').join('') +
+    '</div>' : '';
+
+  el.innerHTML = legend + data.map(d => {
+    const segs = d.segments.map(s => {
+      const w = d.total > 0 ? (s.v / max * 100).toFixed(2) : 0;
+      return w > 0
+        ? '<div class="stacked-seg" style="width:' + w + '%;background:' + s.c + '" title="' + s.l + ': ' + s.v + '">' + (s.v > 0 && w > 3 ? s.v : '') + '</div>'
+        : '';
+    }).join('');
+    return '<div class="stacked-bar-row">' +
+      '<div class="stacked-bar-lbl" title="' + d.label + '">' + d.label + '</div>' +
+      '<div class="stacked-bar-track">' + segs + '</div>' +
+      '<div class="stacked-bar-total">' + d.total + '</div>' +
+      '</div>';
+  }).join('');
+}
+
+// Pipeline chart — stacked PHFL + CHFL per status
+function pipelineChart(id, pool, phfl, chfl) {
+  // Consistent colours: PHFL always dark green, CHFL always yellow
+  const PHFL_COLOR = '#0d4f2e';  // dark green — PHFL
+  const CHFL_COLOR = '#f5c518';  // yellow — CHFL
+  const statuses = ['WIP','Offered','Joined','Rejected','Backed Out'];
+  const statusColours = {WIP:'#c8a000',Offered:'#1a7a47',Joined:'#0d4f2e',Rejected:'#c0392b','Backed Out':'#6a1b9a'};
+
+  if (activeCompany === 'all') {
+    // Stacked: PHFL (dark green) + CHFL (yellow) — same colours every row
+    const legend = [
+      {l:'PHFL', c:PHFL_COLOR},
+      {l:'CHFL', c:CHFL_COLOR},
+    ];
+    const data = statuses.map(s => {
+      const pv = phfl.filter(c => c['Status']===s).length;
+      const cv = chfl.filter(c => c['Status']===s).length;
+      return {
+        label: s,
+        total: pv + cv,
+        segments: [
+          {v:pv, c:PHFL_COLOR, l:'PHFL'},
+          {v:cv, c:CHFL_COLOR, l:'CHFL'},
+        ]
+      };
+    });
+    stackedBars(id, data, legend);
+  } else {
+    // Single company — use status-specific colours
+    bars(id, statuses.map(s => ({l:s, v:pool.filter(c=>c['Status']===s).length, c:statusColours[s]})));
+  }
+}
+
+// Branch stacked bar — WIP / Offered / Joined per branch
+function branchStackedChart(id, pool) {
+  const bm = {};
+  pool.forEach(c => {
+    if (!c['Branch']) return;
+    if (!bm[c['Branch']]) bm[c['Branch']] = {WIP:0,Offered:0,Joined:0,other:0};
+    if      (c['Status']==='WIP')     bm[c['Branch']].WIP++;
+    else if (c['Status']==='Offered') bm[c['Branch']].Offered++;
+    else if (c['Status']==='Joined')  bm[c['Branch']].Joined++;
+    else                              bm[c['Branch']].other++;
+  });
+  const entries = Object.entries(bm).sort((a,b) => (b[1].WIP+b[1].Offered+b[1].Joined+b[1].other) - (a[1].WIP+a[1].Offered+a[1].Joined+a[1].other));
+  const legend = [
+    {l:'WIP',     c:'#f87171'},  // pastel red
+    {l:'Offered', c:'#fdba74'},  // pastel orange
+    {l:'Joined',  c:'#86efac'},  // pastel green
+  ];
+  const data = entries.map(([branch, counts]) => ({
+    label: branch,
+    total: counts.WIP + counts.Offered + counts.Joined + counts.other,
+    segments: [
+      {v:counts.WIP,     c:'#f87171', l:'WIP'},
+      {v:counts.Offered, c:'#fdba74', l:'Offered'},
+      {v:counts.Joined,  c:'#86efac', l:'Joined'},
+    ]
+  }));
+  stackedBars(id, data, legend);
 }
 
 // ══════════════════════════════════════════════════════
